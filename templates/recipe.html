@@ -1,0 +1,829 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>
+        {% if meal %}{{ meal.name }} | {% endif %}RecipeHub
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'css/style.css' %}"
+    >
+</head>
+
+<body id="top" {% if focus %}class="is-focused"{% endif %}>
+
+<div class="ambient-backdrop" aria-hidden="true">
+    {% if meal.image %}
+        <img
+            src="{{ meal.image }}"
+            alt=""
+            referrerpolicy="no-referrer"
+        >
+    {% endif %}
+</div>
+
+<a class="skip-link" href="#main">Skip to recipe</a>
+
+<header class="site-header shell">
+    <a
+        class="brand"
+        href="{% if meal %}{{ discover_url }}{% else %}{% url 'recipe' %}{% endif %}"
+    >
+        <span aria-hidden="true">♨</span> RecipeHub
+    </a>
+
+    {% if meal %}
+        <nav aria-label="Main navigation">
+            <a
+                href="{{ discover_url }}"
+                {% if view == 'discover' %}aria-current="page"{% endif %}
+            >
+                Discover
+            </a>
+
+            <a
+                href="{{ cook_url }}"
+                {% if view == 'cook' %}aria-current="page"{% endif %}
+            >
+                Cook
+            </a>
+
+            <a href="{{ page_url }}#saved-bookmarks">
+                Saved <span>{{ saved|length }}</span>
+            </a>
+        </nav>
+    {% endif %}
+</header>
+
+<main id="main" class="shell">
+
+{% if error %}
+
+    <section class="error-card" role="alert">
+        <p class="eyebrow">A SMALL PAUSE</p>
+        <h1>The kitchen will be back.</h1>
+        <p>{{ error }}</p>
+
+        <a
+            class="button primary"
+            href="{% url 'recipe' %}?new=1"
+        >
+            Try another recipe ↻
+        </a>
+    </section>
+
+{% else %}
+
+    {% if stale %}
+        <p class="notice">
+            Showing a saved copy while TheMealDB is unavailable.
+        </p>
+    {% endif %}
+
+    {% if notice %}
+        <p class="notice" role="status">{{ notice }}</p>
+    {% endif %}
+
+    {% if view == 'discover' %}
+
+    <!-- ================= DISCOVER ================= -->
+
+    <section aria-labelledby="recipe-name">
+
+        {% if state.end %}
+            <p class="timer-banner">
+                Your kitchen timer is running.
+                <a href="{{ cook_url }}#timer">
+                    Return to cooking →
+                </a>
+            </p>
+        {% endif %}
+
+        <div class="discover-hero">
+            <div class="hero-copy">
+                <p class="eyebrow">
+                    TONIGHT, TRY SOMETHING DIFFERENT.
+                </p>
+
+                <h1 id="recipe-name">{{ meal.name }}</h1>
+
+                <div class="tags">
+                    {% if meal.area %}
+                        <span>{{ meal.area }}</span>
+                    {% endif %}
+
+                    {% if meal.category %}
+                        <span>{{ meal.category }}</span>
+                    {% endif %}
+                </div>
+
+                <p class="hero-intro">
+                    A new idea for your table.<br>
+                    We'll take it one step at a time.
+                </p>
+
+                <a
+                    class="button primary hero-start"
+                    href="{{ cook_url }}"
+                >
+                    {% if state.finished %}
+                        Review cooking
+                    {% elif state.completed %}
+                        Resume cooking
+                    {% else %}
+                        Start cooking
+                    {% endif %}
+
+                    <span aria-hidden="true">→</span>
+                </a>
+
+                <div class="hero-actions">
+                    <form action="{{ page_url }}" method="post">
+                        {% csrf_token %}
+
+                        <button
+                            class="text-link"
+                            type="submit"
+                            name="action"
+                            value="bookmark"
+                        >
+                            {% if is_saved %}
+                                ♥ Recipe saved
+                            {% else %}
+                                ♡ Save recipe
+                            {% endif %}
+                        </button>
+                    </form>
+
+                    <a class="text-link" href="{{ new_url }}">
+                        ↻ Try another recipe
+                    </a>
+                </div>
+            </div>
+
+            <figure class="hero-photo">
+                {% if meal.image %}
+                    <img
+                        src="{{ meal.image }}"
+                        alt="{{ meal.name }}"
+                        width="800"
+                        height="800"
+                        referrerpolicy="no-referrer"
+                    >
+                {% else %}
+                    <div class="image-fallback">
+                        <span aria-hidden="true">♨</span>
+                        <p>Your next kitchen adventure.</p>
+                    </div>
+                {% endif %}
+
+                <figcaption>
+                    Good food starts with a little curiosity.
+                </figcaption>
+            </figure>
+        </div>
+
+        <div class="feature-strip">
+            <span>☑ Ingredients checklist</span>
+            <span>↗ Step-by-step guide</span>
+            <span>◷ Your kitchen timer</span>
+        </div>
+
+        <section
+            class="glass prep-card"
+            id="ingredients"
+            aria-labelledby="prep-title"
+        >
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">A LITTLE PREPARATION</p>
+                    <h2 id="prep-title">Before you begin</h2>
+                </div>
+
+                <span class="ready-count">
+                    {{ ready }} / {{ ingredients|length }} ready
+                </span>
+            </div>
+
+            <p class="muted small">
+                Tick your ingredients, then save the checklist.
+                Your ticks carry into cooking mode.
+            </p>
+
+            <form action="{{ page_url }}" method="post">
+                {% csrf_token %}
+
+                <ul class="ingredient-list discovery-list">
+                    {% for ingredient in ingredients|slice:':4' %}
+                        <li>
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    name="ingredient"
+                                    value="{{ ingredient.index }}"
+                                    {% if ingredient.checked %}checked{% endif %}
+                                >
+
+                                <span>
+                                    <strong>{{ ingredient.name }}</strong>
+
+                                    {% if ingredient.measure %}
+                                        <small>{{ ingredient.measure }}</small>
+                                    {% endif %}
+                                </span>
+                            </label>
+                        </li>
+                    {% empty %}
+                        <li>
+                            No ingredient list is available for this recipe.
+                        </li>
+                    {% endfor %}
+                </ul>
+
+                {% if ingredients|length > 4 %}
+                    <details class="more-ingredients">
+                        <summary>
+                            See all {{ ingredients|length }} ingredients
+                        </summary>
+
+                        <ul class="ingredient-list discovery-list">
+                            {% for ingredient in ingredients|slice:'4:' %}
+                                <li>
+                                    <label>
+                                        <input
+                                            type="checkbox"
+                                            name="ingredient"
+                                            value="{{ ingredient.index }}"
+                                            {% if ingredient.checked %}checked{% endif %}
+                                        >
+
+                                        <span>
+                                            <strong>{{ ingredient.name }}</strong>
+
+                                            {% if ingredient.measure %}
+                                                <small>{{ ingredient.measure }}</small>
+                                            {% endif %}
+                                        </span>
+                                    </label>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                {% endif %}
+
+                {% if ingredients %}
+                    <button
+                        type="submit"
+                        class="button secondary checklist-save"
+                        name="action"
+                        value="ingredients"
+                    >
+                        Save checklist ✓
+                    </button>
+                {% endif %}
+            </form>
+        </section>
+    </section>
+
+    {% else %}
+
+    <!-- ================= COOK ================= -->
+
+    <section aria-labelledby="cook-recipe-title">
+        <div class="cook-topbar">
+            <a class="text-link" href="{{ discover_url }}">
+                ← Back to recipe
+            </a>
+
+            <a class="text-link" href="{{ focus_url }}">
+                {% if focus %}
+                    Exit focus ↙
+                {% else %}
+                    Focus view ↗
+                {% endif %}
+            </a>
+        </div>
+
+        <div class="cook-recipe-heading">
+            {% if meal.image %}
+                <img
+                    class="recipe-thumb"
+                    src="{{ meal.image }}"
+                    alt=""
+                    width="64"
+                    height="64"
+                    referrerpolicy="no-referrer"
+                >
+            {% endif %}
+
+            <div>
+                <h2 id="cook-recipe-title">{{ meal.name }}</h2>
+
+                <div class="tags">
+                    {% if meal.area %}
+                        <span>{{ meal.area }}</span>
+                    {% endif %}
+
+                    {% if meal.category %}
+                        <span>{{ meal.category }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="journey" id="workbench">
+            <span>
+                {% if state.finished %}
+                    All steps complete
+                {% elif total_steps %}
+                    Step {{ step_number }} of {{ total_steps }}
+                {% else %}
+                    No steps available
+                {% endif %}
+            </span>
+
+            <progress
+                value="{{ state.completed }}"
+                max="{{ total_steps|default:1 }}"
+                aria-label="Completed recipe steps"
+            ></progress>
+        </div>
+
+        <div class="workspace-grid">
+            <div class="workspace-main">
+
+                <!-- Current instruction -->
+                <section
+                    class="glass step-card"
+                    id="instruction-card"
+                    aria-labelledby="step-title"
+                >
+                    <p class="eyebrow">ONE STEP AT A TIME</p>
+
+                    <h2 id="step-title">
+                        {% if state.finished %}
+                            Made by you.
+                        {% elif total_steps %}
+                            Let's cook. Step {{ step_number }}.
+                        {% else %}
+                            Instructions unavailable.
+                        {% endif %}
+                    </h2>
+
+                    <div
+                        class="step-text"
+                        tabindex="0"
+                        role="region"
+                        aria-label="Current instruction"
+                    >{% if state.finished %}All recipe steps are marked complete. Enjoy your creation!{% elif total_steps %}{{ current_step }}{% else %}Try another recipe. Ingredients alone aren't enough to guide preparation.{% endif %}</div>
+
+                    <form
+                        class="step-actions"
+                        action="{{ page_url }}"
+                        method="post"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="button secondary"
+                            name="action"
+                            value="previous"
+                            {% if state.index == 0 and not state.finished %}disabled{% endif %}
+                        >
+                            ← Previous
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="button primary"
+                            name="action"
+                            value="next"
+                            {% if not total_steps %}disabled{% endif %}
+                        >
+                            {% if state.finished %}
+                                Review steps ↻
+                            {% elif last_step %}
+                                Mark final step done ✓
+                            {% else %}
+                                Mark done & continue →
+                            {% endif %}
+                        </button>
+                    </form>
+
+                    {% if total_steps %}
+                        <form action="{{ page_url }}" method="post">
+                            {% csrf_token %}
+
+                            <button
+                                type="submit"
+                                class="text-link restart"
+                                name="action"
+                                value="restart"
+                            >
+                                Restart steps
+                            </button>
+                        </form>
+                    {% endif %}
+                </section>
+
+                <!-- Compact horizontal timer -->
+                <section
+                    class="glass timer-dock {% if state.timer_finished %}finished{% endif %}"
+                    id="timer"
+                    aria-labelledby="timer-title"
+                >
+                    <div class="timer-label">
+                        <span aria-hidden="true">◷</span>
+                        <h3 id="timer-title">Your timer</h3>
+                    </div>
+
+                    <output
+                        class="timer-readout"
+                        id="timer-display"
+                        data-end="{{ timer_end_ms }}"
+                        aria-live="off"
+                    >{{ timer_text }}</output>
+
+                    <div class="timer-controls">
+                        <form action="{{ page_url }}" method="post">
+                            {% csrf_token %}
+
+                            <label for="timer-minutes">
+                                Minutes (1–180)
+                            </label>
+
+                            <div>
+                                <input
+                                    id="timer-minutes"
+                                    type="number"
+                                    name="minutes"
+                                    min="1"
+                                    max="180"
+                                    step="1"
+                                    value="{{ timer_minutes }}"
+                                    required
+                                >
+
+                                <button
+                                    class="button secondary"
+                                    type="submit"
+                                    name="action"
+                                    value="timer_set"
+                                >
+                                    Set / reset
+                                </button>
+                            </div>
+                        </form>
+
+                        <form action="{{ page_url }}" method="post">
+                            {% csrf_token %}
+
+                            <button
+                                class="button primary"
+                                id="timer-toggle"
+                                type="submit"
+                                name="action"
+                                value="timer_toggle"
+                                {% if not remaining %}disabled{% endif %}
+                            >
+                                {% if state.end %}
+                                    Pause Ⅱ
+                                {% else %}
+                                    Start ▶
+                                {% endif %}
+                            </button>
+                        </form>
+                    </div>
+
+                    <p
+                        class="muted small"
+                        id="timer-status"
+                        role="status"
+                    >
+                        {% if state.timer_finished %}
+                            Time's up. Check your dish.
+                        {% elif state.end %}
+                            Timer running. Keep this tab open
+                            for the on-screen alert.
+                        {% else %}
+                            Set your time, then press Start.
+                        {% endif %}
+                    </p>
+
+                    <noscript>
+                        <p class="small">
+                            Refresh this page to update the timer display.
+                        </p>
+                    </noscript>
+                </section>
+            </div>
+
+            <!-- Cooking ingredient checklist -->
+            <aside
+                class="glass cook-ingredients"
+                id="ingredients"
+                aria-labelledby="ingredients-title"
+            >
+                <div class="section-heading">
+                    <h2 id="ingredients-title">Ingredients</h2>
+
+                    <span class="ready-count">
+                        {{ ready }} / {{ ingredients|length }} ready
+                    </span>
+                </div>
+
+                <p class="muted small">
+                    Tick items, then save your checklist.
+                </p>
+
+                <form action="{{ page_url }}" method="post">
+                    {% csrf_token %}
+
+                    <ul
+                        class="ingredient-list cooking-list"
+                        tabindex="0"
+                        aria-label="Ingredients checklist"
+                    >
+                        {% for ingredient in ingredients %}
+                            <li>
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        name="ingredient"
+                                        value="{{ ingredient.index }}"
+                                        {% if ingredient.checked %}checked{% endif %}
+                                    >
+
+                                    <span>
+                                        <strong>{{ ingredient.name }}</strong>
+
+                                        {% if ingredient.measure %}
+                                            <small>{{ ingredient.measure }}</small>
+                                        {% endif %}
+                                    </span>
+                                </label>
+                            </li>
+                        {% empty %}
+                            <li>No ingredient list is available.</li>
+                        {% endfor %}
+                    </ul>
+
+                    {% if ingredients %}
+                        <button
+                            type="submit"
+                            class="button secondary checklist-save"
+                            name="action"
+                            value="ingredients"
+                        >
+                            Save checklist ✓
+                        </button>
+                    {% endif %}
+                </form>
+            </aside>
+        </div>
+    </section>
+
+    {% endif %}
+
+    <!-- Full original method -->
+    <section class="glass full-method" aria-labelledby="method-title">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">THE WHOLE PICTURE</p>
+                <h2 id="method-title">Full recipe instructions</h2>
+            </div>
+        </div>
+
+        <p class="print-recipe-name">{{ meal.name }}</p>
+
+        <div class="original-instructions">{{ meal.instructions|default:'Instructions are unavailable for this recipe.' }}</div>
+    </section>
+
+    <!-- Saved cookbook -->
+    <section
+        class="glass saved-cookbook"
+        id="saved-bookmarks"
+        aria-labelledby="saved-title"
+    >
+        <div class="section-heading">
+            <h2 id="saved-title">Your cookbook</h2>
+
+            <span class="ready-count">
+                {{ saved|length }} / 50 saved
+            </span>
+        </div>
+
+        <p class="muted small">
+            Saved for this browser session. Clearing cookies
+            or an expired session removes your saved progress.
+        </p>
+
+        <ul class="saved-list">
+            {% for item in saved %}
+                <li>
+                    <a href="{% url 'recipe' %}?meal={{ item.id }}">
+                        {{ item.name }}
+                    </a>
+
+                    <form action="{{ page_url }}" method="post">
+                        {% csrf_token %}
+
+                        <input
+                            type="hidden"
+                            name="saved_id"
+                            value="{{ item.id }}"
+                        >
+
+                        <button
+                            type="submit"
+                            name="action"
+                            value="remove_saved"
+                            aria-label="Remove {{ item.name }} from saved recipes"
+                        >
+                            Remove
+                        </button>
+                    </form>
+                </li>
+            {% empty %}
+                <li>
+                    Your cookbook is waiting.
+                    Save a recipe to return to it later.
+                </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+{% endif %}
+</main>
+
+<footer class="site-footer shell">
+    <p>
+        Recipe data:
+        <a
+            href="https://www.themealdb.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            TheMealDB
+        </a>
+    </p>
+
+    <p>One good meal. One step at a time.</p>
+</footer>
+
+<!-- Scroll-to-top link -->
+<a
+    class="back-to-top"
+    id="back-to-top"
+    href="#top"
+    aria-label="Scroll to top"
+>
+    ↑
+</a>
+
+<!-- Minimal JavaScript: live countdown and top-link visibility only -->
+<script>
+(() => {
+    const topButton = document.getElementById("back-to-top");
+    let reachedEnd = false;
+    let pending = false;
+
+    function updateTop() {
+        pending = false;
+
+        const page = document.scrollingElement
+            || document.documentElement;
+
+        if (
+            page.scrollTop > 100
+            && page.scrollHeight - innerHeight - page.scrollTop <= 200
+        ) {
+            reachedEnd = true;
+        }
+
+        if (page.scrollTop <= 100) {
+            reachedEnd = false;
+        }
+
+        topButton.hidden = !reachedEnd;
+    }
+
+    function scheduleTop() {
+        if (!pending) {
+            pending = true;
+            requestAnimationFrame(updateTop);
+        }
+    }
+
+    addEventListener("scroll", scheduleTop, { passive: true });
+    addEventListener("resize", scheduleTop);
+    addEventListener("pageshow", scheduleTop);
+    document.addEventListener("load", scheduleTop, true);
+
+    updateTop();
+
+    const display = document.getElementById("timer-display");
+
+    if (!display || !display.dataset.end) return;
+
+    const deadline = Number(display.dataset.end);
+    const originalTitle = document.title;
+
+    if (!Number.isFinite(deadline)) return;
+
+    let finished = false;
+
+    function tick() {
+        const seconds = Math.max(
+            0,
+            Math.ceil((deadline - Date.now()) / 1000)
+        );
+
+        const minutesText = String(
+            Math.floor(seconds / 60)
+        ).padStart(2, "0");
+
+        const secondsText = String(
+            seconds % 60
+        ).padStart(2, "0");
+
+        display.textContent = `${minutesText}:${secondsText}`;
+
+        if (!seconds && !finished) {
+            finished = true;
+
+            document.getElementById("timer-status").textContent =
+                "Time's up. Check your dish.";
+
+            document.getElementById("timer").classList.add("finished");
+            document.getElementById("timer-toggle").disabled = true;
+
+            document.title = `Timer finished | ${originalTitle}`;
+        }
+    }
+
+    tick();
+
+    const interval = setInterval(() => {
+        tick();
+
+        if (finished) {
+            clearInterval(interval);
+        }
+    }, 500);
+
+    document.addEventListener("visibilitychange", tick);
+})();
+</script>
+
+<script>
+(() => {
+    const workspace = document.querySelector(".workspace-grid");
+
+    if (!workspace) return;
+
+    function fitWorkspace() {
+        const desktop = window.matchMedia(
+            "(min-width: 1051px) and (min-height: 760px)"
+        ).matches;
+
+        if (!desktop) {
+            workspace.style.removeProperty("--workspace-height");
+            return;
+        }
+
+        const workspaceTop =
+            workspace.getBoundingClientRect().top + window.scrollY;
+
+        const availableHeight = Math.max(
+            300,
+            window.innerHeight - workspaceTop - 24
+        );
+
+        workspace.style.setProperty(
+            "--workspace-height",
+            `${availableHeight}px`
+        );
+    }
+
+    fitWorkspace();
+    window.addEventListener("load", fitWorkspace);
+    window.addEventListener("resize", fitWorkspace);
+
+    if (document.fonts) {
+        document.fonts.ready.then(fitWorkspace);
+    }
+})();
+</script>
+
+</body>
+</html>
